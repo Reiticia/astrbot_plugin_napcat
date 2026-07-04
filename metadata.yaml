@@ -1,9 +1,9 @@
-name: "astrbot_plugin_qq_ops"
-display_name: "QQ 平台操作"
+name: "astrbot_plugin_napcat"
+display_name: "NapCat 工具"
 author: "reine-ishyanami"
-desc: "提供 QQ 平台原生操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音（基于 NapCat 协议）"
+desc: "基于 NapCat 协议提供 QQ 平台操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音"
 version: "1.0.0"
-repo: "https://github.com/reine-ishyanami/astrbot_plugin_qq_ops"
+repo: "https://github.com/reine-ishyanami/astrbot_plugin_napcat"
 support_platforms:
   - aiocqhttp
 astrbot_version: ">=4.24.2"

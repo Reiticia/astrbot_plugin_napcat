@@ -1,17 +1,17 @@
-# QQ 平台操作
+# NapCat 工具
 
-为 AstrBot 提供 QQ 平台原生操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音。
+基于 NapCat 协议为 AstrBot 提供 QQ 平台操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音。
 
-- **插件名**：`astrbot_plugin_qq_ops`
+- **插件名**：`astrbot_plugin_napcat`
 - **版本**：`1.0.0`
 - **作者**：`reine-ishyanami`
 - **适配 AstrBot 版本**：`>= 4.24.2`
-- **仓库地址**：`https://github.com/reine-ishyanami/astrbot_plugin_qq_ops`
+- **仓库地址**：`https://github.com/reine-ishyanami/astrbot_plugin_napcat`
 
 ## 项目结构
 
 ```
-astrbot_plugin_qq_ops/
+astrbot_plugin_napcat/
 ├── main.py              # 入口：Main 类、生命周期、工具注册
 ├── qq_tools/            # 功能模块包
 │   ├── __init__.py
@@ -47,7 +47,7 @@ astrbot_plugin_qq_ops/
 
 ```bash
 # 在 AstrBot 插件目录下
-git clone https://github.com/reine-ishyanami/astrbot_plugin_qq_ops.git
+git clone https://github.com/reine-ishyanami/astrbot_plugin_napcat.git
 ```
 
 ## 配置项

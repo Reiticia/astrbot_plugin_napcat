@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-astrbot_plugin_qq_ops — QQ 平台操作
+astrbot_plugin_napcat — NapCat 工具
 =====================================
 入口模块：插件生命周期、上下文管理、工具注册。
 
@@ -45,7 +45,7 @@ from .qq_tools import voice
 from .qq_tools import profile
 from .qq_tools import history
 
-PLUGIN_ID = "astrbot_plugin_qq_ops"
+PLUGIN_ID = "astrbot_plugin_napcat"
 
 
 class Main(Star):
