@@ -62,7 +62,6 @@ class Main(Star):
         self._contacts_ts: Optional[datetime] = None
         self._contacts_lock = asyncio.Lock()
 
-    async def start(self):
         self._register_tools()
         logger.info(f'[{PLUGIN_ID}] 已启动 — {len(self.tools._defs)} 个工具就绪')
 
