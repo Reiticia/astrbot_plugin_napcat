@@ -1,0 +1,93 @@
+{
+    "enabled": {
+        "description": "插件总开关",
+        "type": "bool",
+        "default": true
+    },
+    "group_manage_enabled": {
+        "description": "群管理功能总开关",
+        "type": "bool",
+        "default": true,
+        "hint": "关闭后所有群管工具不可用"
+    },
+    "kick_enabled": {
+        "description": "踢人功能独立开关",
+        "type": "bool",
+        "default": true
+    },
+    "max_output_chars": {
+        "description": "工具返回内容最大字符数",
+        "type": "int",
+        "default": 2000,
+        "hint": "建议 1500-3000，0 为不限制"
+    },
+    "email_sender": {
+        "description": "发件人QQ邮箱地址",
+        "type": "string",
+        "default": ""
+    },
+    "email_authorization_code": {
+        "description": "QQ邮箱授权码（非登录密码）",
+        "type": "string",
+        "default": "",
+        "obvious_hint": true
+    },
+    "email_smtp_server": {
+        "description": "SMTP服务器",
+        "type": "string",
+        "default": "smtp.qq.com"
+    },
+    "email_smtp_port": {
+        "description": "SMTP端口（SSL）",
+        "type": "int",
+        "default": 465
+    },
+    "ai_voice_default_character": {
+        "description": "AI语音默认角色ID",
+        "type": "string",
+        "default": ""
+    },
+    "ai_voice_max_text_length": {
+        "description": "AI语音文本最大长度",
+        "type": "int",
+        "default": 500
+    },
+
+    "enable_send_message": {"type": "bool", "default": true, "description": "发送消息"},
+    "enable_send_poke": {"type": "bool", "default": true, "description": "戳一戳"},
+    "enable_send_like": {"type": "bool", "default": true, "description": "点赞"},
+    "enable_search_contacts": {"type": "bool", "default": true, "description": "搜索联系人"},
+    "enable_list_contacts": {"type": "bool", "default": true, "description": "列出联系人"},
+    "enable_get_user_group_role": {"type": "bool", "default": true, "description": "查询群成员身份"},
+    "enable_update_qq_status": {"type": "bool", "default": true, "description": "设置QQ状态"},
+    "enable_get_qq_status": {"type": "bool", "default": true, "description": "查看QQ状态"},
+    "enable_get_fun_status_list": {"type": "bool", "default": true, "description": "娱乐状态列表"},
+    "enable_set_group_ban": {"type": "bool", "default": true, "description": "禁言/解禁"},
+    "enable_set_group_kick": {"type": "bool", "default": true, "description": "踢人"},
+    "enable_set_group_whole_ban": {"type": "bool", "default": true, "description": "全体禁言"},
+    "enable_set_group_card": {"type": "bool", "default": true, "description": "修改群名片"},
+    "enable_set_group_admin": {"type": "bool", "default": true, "description": "设置管理员"},
+    "enable_set_group_special_title": {"type": "bool", "default": true, "description": "专属头衔"},
+    "enable_set_group_name": {"type": "bool", "default": true, "description": "修改群名称"},
+    "enable_set_group_add_option": {"type": "bool", "default": true, "description": "设置加群方式"},
+    "enable_send_group_notice": {"type": "bool", "default": true, "description": "发布群公告"},
+    "enable_delete_group_notice": {"type": "bool", "default": true, "description": "删除群公告"},
+    "enable_get_group_notice_list": {"type": "bool", "default": true, "description": "群公告列表"},
+    "enable_list_group_files": {"type": "bool", "default": true, "description": "群文件列表"},
+    "enable_delete_group_file": {"type": "bool", "default": true, "description": "删除群文件"},
+    "enable_upload_group_file": {"type": "bool", "default": true, "description": "上传群文件"},
+    "enable_create_group_file_folder": {"type": "bool", "default": true, "description": "创建群文件夹"},
+    "enable_delete_group_folder": {"type": "bool", "default": true, "description": "删除群文件夹"},
+    "enable_get_group_members_info": {"type": "bool", "default": true, "description": "群成员列表"},
+    "enable_get_group_honor_info": {"type": "bool", "default": true, "description": "群荣誉"},
+    "enable_get_group_shut_list": {"type": "bool", "default": true, "description": "禁言列表"},
+    "enable_get_group_at_all_remain": {"type": "bool", "default": true, "description": "@全体剩余次数"},
+    "enable_send_group_sign": {"type": "bool", "default": true, "description": "群打卡"},
+    "enable_send_qq_email": {"type": "bool", "default": true, "description": "发送QQ邮件"},
+    "enable_get_ai_characters": {"type": "bool", "default": true, "description": "AI语音角色列表"},
+    "enable_send_ai_voice": {"type": "bool", "default": true, "description": "发送AI语音"},
+    "enable_set_qq_profile": {"type": "bool", "default": true, "description": "修改个人资料"},
+    "enable_set_qq_avatar": {"type": "bool", "default": true, "description": "设置QQ头像"},
+    "enable_get_group_msg_history": {"type": "bool", "default": true, "description": "群历史消息"},
+    "enable_get_friend_msg_history": {"type": "bool", "default": true, "description": "好友历史消息"}
+}
