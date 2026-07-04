@@ -50,6 +50,12 @@ class Main(Star):
     def _cfg(self) -> Dict:
         return self.config or {}
 
+    def _guard(self, key: str, name: str) -> str | None:
+        '''检查权限配置，返回 None 表示放行，否则返回拒绝原因字符串。'''
+        if not self._cfg().get(key, False):
+            return json.dumps({"ok": False, "detail": f"「{name}」已被管理员禁用，如需使用请在插件配置中开启 {key}"}, ensure_ascii=False)
+        return None
+
     async def _load_contacts(self) -> Dict:
         async with self._contacts_lock:
             now = datetime.now()
@@ -189,6 +195,7 @@ class Main(Star):
             duration(number): 禁言时长（秒），0表示解除禁言
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_ban", "禁言"): return r
         r = await group_members.set_group_ban(self.client, self._gid(), user_id, duration)
         return json.dumps(r, ensure_ascii=False)
 
@@ -201,6 +208,7 @@ class Main(Star):
             reject_add_request(boolean): 是否同时拒绝该用户再次申请加群，默认false
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_kick", "踢人"): return r
         r = await group_members.set_group_kick(self.client, self._gid(), user_id, reject_add_request)
         return json.dumps(r, ensure_ascii=False)
 
@@ -225,6 +233,7 @@ class Main(Star):
             enable(boolean): true=设为管理员 / false=取消管理员
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_admin_ops", "设置管理员"): return r
         r = await group_members.set_group_admin(self.client, self._gid(), user_id, enable)
         return json.dumps(r, ensure_ascii=False)
 
@@ -261,6 +270,7 @@ class Main(Star):
             notice_id(string): 公告ID（可通过 get_group_notice_list 获取）
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_delete_ops", "删除群公告"): return r
         r = await group_files.delete_group_notice(self.client, self._gid(), notice_id)
         return json.dumps(r, ensure_ascii=False)
 
@@ -287,6 +297,7 @@ class Main(Star):
             busid(number): 文件类型标识，默认102
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_delete_ops", "删除群文件"): return r
         r = await group_files.delete_group_file(self.client, self._gid(), file_id, busid)
         return json.dumps(r, ensure_ascii=False)
 
@@ -321,6 +332,7 @@ class Main(Star):
             folder_id(string): 文件夹ID
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_delete_ops", "删除群文件夹"): return r
         r = await group_files.delete_group_folder(self.client, self._gid(), folder_id)
         return json.dumps(r, ensure_ascii=False)
 
@@ -334,6 +346,7 @@ class Main(Star):
             enable(boolean): true=开启全体禁言 / false=关闭全体禁言
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_ban", "全体禁言"): return r
         r = await group_settings.set_group_whole_ban(self.client, self._gid(), enable)
         return json.dumps(r, ensure_ascii=False)
 
@@ -345,6 +358,7 @@ class Main(Star):
             group_name(string): 新的群名称
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_admin_ops", "修改群名称"): return r
         r = await group_settings.set_group_name(self.client, self._gid(), group_name)
         return json.dumps(r, ensure_ascii=False)
 
@@ -356,6 +370,7 @@ class Main(Star):
             option(string): allow=允许任何人 / verify=需要验证消息 / deny=禁止加群
         '''
         self._set_client(event); self._set_gid(event)
+        if r := self._guard("allow_admin_ops", "设置加群方式"): return r
         r = await group_settings.set_group_add_option(self.client, self._gid(), option)
         return json.dumps(r, ensure_ascii=False)
 
@@ -430,6 +445,7 @@ class Main(Star):
             personal_note(string): 新个性签名，留空则不修改
         '''
         self._set_client(event)
+        if r := self._guard("allow_profile_edit", "修改个人资料"): return r
         r = await profile.set_qq_profile(self.client, nickname, personal_note)
         return json.dumps(r, ensure_ascii=False)
 
@@ -441,6 +457,7 @@ class Main(Star):
             file(string): 图片路径（本地绝对路径 / base64://格式 / http(s)://URL）
         '''
         self._set_client(event)
+        if r := self._guard("allow_profile_edit", "修改QQ头像"): return r
         r = await profile.set_qq_avatar(self.client, file)
         return json.dumps(r, ensure_ascii=False)
 

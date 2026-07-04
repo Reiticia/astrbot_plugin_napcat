@@ -21,40 +21,34 @@
         "default": 500
     },
 
-    "enable_send_message": {"type": "bool", "default": true},
-    "enable_send_poke": {"type": "bool", "default": true},
-    "enable_send_like": {"type": "bool", "default": true},
-    "enable_search_contacts": {"type": "bool", "default": true},
-    "enable_list_contacts": {"type": "bool", "default": true},
-    "enable_get_user_group_role": {"type": "bool", "default": true},
-    "enable_update_qq_status": {"type": "bool", "default": true},
-    "enable_get_qq_status": {"type": "bool", "default": true},
-    "enable_get_fun_status_list": {"type": "bool", "default": true},
-    "enable_set_group_ban": {"type": "bool", "default": true},
-    "enable_set_group_kick": {"type": "bool", "default": true},
-    "enable_set_group_whole_ban": {"type": "bool", "default": true},
-    "enable_set_group_card": {"type": "bool", "default": true},
-    "enable_set_group_admin": {"type": "bool", "default": true},
-    "enable_set_group_special_title": {"type": "bool", "default": true},
-    "enable_set_group_name": {"type": "bool", "default": true},
-    "enable_set_group_add_option": {"type": "bool", "default": true},
-    "enable_send_group_notice": {"type": "bool", "default": true},
-    "enable_delete_group_notice": {"type": "bool", "default": true},
-    "enable_get_group_notice_list": {"type": "bool", "default": true},
-    "enable_list_group_files": {"type": "bool", "default": true},
-    "enable_delete_group_file": {"type": "bool", "default": true},
-    "enable_upload_group_file": {"type": "bool", "default": true},
-    "enable_create_group_file_folder": {"type": "bool", "default": true},
-    "enable_delete_group_folder": {"type": "bool", "default": true},
-    "enable_get_group_members_info": {"type": "bool", "default": true},
-    "enable_get_group_honor_info": {"type": "bool", "default": true},
-    "enable_get_group_shut_list": {"type": "bool", "default": true},
-    "enable_get_group_at_all_remain": {"type": "bool", "default": true},
-    "enable_send_group_sign": {"type": "bool", "default": true},
-    "enable_get_ai_characters": {"type": "bool", "default": true},
-    "enable_send_ai_voice": {"type": "bool", "default": true},
-    "enable_set_qq_profile": {"type": "bool", "default": true},
-    "enable_set_qq_avatar": {"type": "bool", "default": true},
-    "enable_get_group_msg_history": {"type": "bool", "default": true},
-    "enable_get_friend_msg_history": {"type": "bool", "default": true}
+    "allow_kick": {
+        "description": "是否允许 LLM 踢人",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 高危操作，踢出后不可自动恢复"
+    },
+    "allow_admin_ops": {
+        "description": "是否允许 LLM 执行管理员操作（设管理员、改群名、改加群方式）",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 包含提权操作，建议谨慎开启"
+    },
+    "allow_delete_ops": {
+        "description": "是否允许 LLM 删除群公告、群文件、群文件夹",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 删除不可逆，建议仅在受控环境中开启"
+    },
+    "allow_profile_edit": {
+        "description": "是否允许 LLM 修改机器人 QQ 资料和头像",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 防止 LLM 误改机器人身份信息"
+    },
+    "allow_ban": {
+        "description": "是否允许 LLM 禁言和全体禁言",
+        "type": "bool",
+        "default": true,
+        "hint": "禁言时效后可自动恢复，相对安全"
+    }
 }
