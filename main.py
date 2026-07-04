@@ -97,6 +97,18 @@ class Main(Star):
             )
         return None
 
+    # ═══ 生命周期：在 LLM 请求前捕获客户端 ═══
+
+    @filter.on_llm_request()
+    async def _capture_client(self, event: AstrMessageEvent, req) -> None:
+        """在 LLM 请求前从原始事件中捕获 NapCat 客户端引用。
+
+        v4.26.0 的 tool_loop_agent_runner 可能在调用 LLM 工具时传入被包装过的 event，
+        导致 event.bot 丢失。此处提前在消息处理阶段捕获，确保后续工具调用时 client 可用。
+        """
+        self._set_client(event)
+        self._set_gid(event)
+
     # ═══ 消息 ═══
 
     @filter.llm_tool(name="send_message")
