@@ -21,27 +21,6 @@
         "default": 2000,
         "hint": "建议 1500-3000，0 为不限制"
     },
-    "email_sender": {
-        "description": "发件人QQ邮箱地址",
-        "type": "string",
-        "default": ""
-    },
-    "email_authorization_code": {
-        "description": "QQ邮箱授权码（非登录密码）",
-        "type": "string",
-        "default": "",
-        "obvious_hint": true
-    },
-    "email_smtp_server": {
-        "description": "SMTP服务器",
-        "type": "string",
-        "default": "smtp.qq.com"
-    },
-    "email_smtp_port": {
-        "description": "SMTP端口（SSL）",
-        "type": "int",
-        "default": 465
-    },
     "ai_voice_default_character": {
         "description": "AI语音默认角色ID",
         "type": "string",
@@ -83,7 +62,6 @@
     "enable_get_group_shut_list": {"type": "bool", "default": true, "description": "禁言列表"},
     "enable_get_group_at_all_remain": {"type": "bool", "default": true, "description": "@全体剩余次数"},
     "enable_send_group_sign": {"type": "bool", "default": true, "description": "群打卡"},
-    "enable_send_qq_email": {"type": "bool", "default": true, "description": "发送QQ邮件"},
     "enable_get_ai_characters": {"type": "bool", "default": true, "description": "AI语音角色列表"},
     "enable_send_ai_voice": {"type": "bool", "default": true, "description": "发送AI语音"},
     "enable_set_qq_profile": {"type": "bool", "default": true, "description": "修改个人资料"},

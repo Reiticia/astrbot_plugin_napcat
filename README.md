@@ -1,6 +1,6 @@
 # QQ 平台操作
 
-为 AstrBot 提供 QQ 平台原生操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音、邮件发送。
+为 AstrBot 提供 QQ 平台原生操作能力：消息收发、群管理、联系人搜索、在线状态控制、个人资料、AI 语音。
 
 - **插件名**：`astrbot_plugin_qq_ops`
 - **版本**：`1.0.0`
@@ -25,7 +25,6 @@ astrbot_plugin_qq_ops/
 │   ├── group_members.py # 群成员控制（禁言/踢人/名片/管理员/头衔）
 │   ├── group_files.py   # 群文件 & 群公告
 │   ├── group_settings.py# 群设置 & 信息查询
-│   ├── email_sender.py  # QQ 邮件发送
 │   ├── voice.py         # AI 语音（TTS）
 │   ├── profile.py       # 个人资料 & 头像
 │   └── history.py       # 历史消息
@@ -40,7 +39,6 @@ astrbot_plugin_qq_ops/
 - 联系人管理：模糊搜索好友和群聊、列出联系人、查询群成员身份
 - QQ 在线状态：在线/离开/忙碌/隐身/听歌中/睡觉中/学习中，设定时长后自动恢复
 - 群管理：禁言、踢人、全体禁言、改名片、管理员、专属头衔、群公告、群文件、群荣誉等
-- QQ 邮件：通过 QQ 邮箱 SMTP 发送邮件
 - AI 语音：调用 QQ 官方 TTS，支持多角色朗读
 - 个人资料：修改机器人昵称、个性签名、QQ 头像
 - 历史消息：获取群聊和私聊的历史消息记录
@@ -60,13 +58,9 @@ git clone https://github.com/reine-ishyanami/astrbot_plugin_qq_ops.git
 | `group_manage_enabled` | `bool` | `true` | 群管理功能总开关，关闭后所有群管工具不可用 |
 | `kick_enabled` | `bool` | `true` | 踢人功能独立开关，防止误操作 |
 | `max_output_chars` | `int` | `2000` | 工具返回内容最大字符数，0 为不限制 |
-| `email_sender` | `str` | `""` | 发件人 QQ 邮箱地址 |
-| `email_authorization_code` | `str` | `""` | QQ 邮箱授权码（请在 QQ 邮箱设置-账户中获取 16 位授权码） |
-| `email_smtp_server` | `str` | `"smtp.qq.com"` | SMTP 服务器 |
-| `email_smtp_port` | `int` | `465` | SMTP 端口（SSL） |
 | `ai_voice_default_character` | `str` | `""` | AI 语音默认角色 ID（例如 luoli、yujie），可通过 `/ai_characters` 查看可用角色 |
 | `ai_voice_max_text_length` | `int` | `500` | AI 语音文本最大长度，腾讯限制约 500 字符 |
-| `enable_<工具名>` | `bool` | `true` | 各工具独立启用开关，共 36 个，详见 `_conf_schema.json` |
+| `enable_<工具名>` | `bool` | `true` | 各工具独立启用开关，共 35 个，详见 `_conf_schema.json` |
 
 ## 指令列表
 
@@ -130,12 +124,6 @@ git clone https://github.com/reine-ishyanami/astrbot_plugin_qq_ops.git
 | `/group_honor` | `[talkative/performer/emotion/all]` | 管理员 | 查看群荣誉（龙王、群聊之火等） | `/group_honor talkative` |
 | `/shut_list` | 无 | 管理员 | 查看当前被禁言的成员 | `/shut_list` |
 | `/at_all_remain` | 无 | 管理员 | 查询 @全体成员 今日剩余次数 | `/at_all_remain` |
-
-### 邮件
-
-| 指令 | 参数 | 权限 | 说明 | 示例 |
-| --- | --- | --- | --- | --- |
-| `/tool_email` | `<收件人> <主题> <内容>` | 管理员 | 通过 QQ 邮箱发送邮件 | `/tool_email friend@qq.com 测试 你好` |
 
 ### AI 语音
 
@@ -203,9 +191,6 @@ result = await set_group_ban(client, group_id=123456, user_id='789', duration=60
 - **问题**：群管理操作返回"权限不足"错误
   **解决**：确认机器人账号在目标群拥有管理员或群主权限。
 
-- **问题**：发送邮件失败，提示认证错误
-  **解决**：检查 `email_sender` 和 `email_authorization_code` 是否正确。授权码在 QQ 邮箱「设置 → 账户 → POP3/SMTP」中生成。
-
 - **问题**：AI 语音发送后群内无反应
   **解决**：先通过 `/ai_characters` 测试，若失败则 NapCat 版本可能不支持该功能。
 
@@ -219,7 +204,7 @@ result = await set_group_ban(client, group_id=123456, user_id='789', duration=60
 
 | 版本 | 日期 | 说明 |
 | --- | --- | --- |
-| `1.0.0` | `2026-07-04` | 初始版本，36 个 LLM 工具，覆盖消息/群管/联系人/状态/邮件/语音/资料/历史消息 |
+| `1.0.0` | `2026-07-04` | 初始版本，35 个 LLM 工具，覆盖消息/群管/联系人/状态/邮件/语音/资料/历史消息 |
 
 ## 协议
 

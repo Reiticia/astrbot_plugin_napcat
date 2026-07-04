@@ -41,7 +41,6 @@ from .qq_tools import qq_status as status_mod
 from .qq_tools import group_members
 from .qq_tools import group_files
 from .qq_tools import group_settings
-from .qq_tools import email_sender
 from .qq_tools import voice
 from .qq_tools import profile
 from .qq_tools import history
@@ -216,12 +215,6 @@ class Main(Star):
         t.register('get_group_at_all_remain', '查询@全体剩余次数', {},
                    lambda **kw: group_settings.get_group_at_all_remain(self.client, gid()),
                    'enable_get_group_at_all_remain')
-
-        # ── 邮件 ──
-        t.register('send_qq_email', '通过QQ邮箱发送邮件',
-                   {'to': 'string', 'subject': 'string', 'content': 'string'},
-                   lambda **kw: email_sender.send_qq_email(cfg, **kw),
-                   'enable_send_qq_email')
 
         # ── AI 语音 ──
         t.register('get_ai_characters', '获取可用的AI语音角色', {},
