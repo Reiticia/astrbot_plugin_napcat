@@ -5,6 +5,7 @@ astrbot_plugin_napcat — NapCat 工具
 """
 import asyncio
 import json
+import time
 from datetime import datetime
 from typing import Optional, Dict
 
@@ -41,6 +42,7 @@ class Main(Star):
         self._contacts: Optional[Dict] = None
         self._contacts_ts: Optional[datetime] = None
         self._contacts_lock = asyncio.Lock()
+        self._poke_cooldowns: Dict[str, float] = {}  # target_qq → last_poke_timestamp
         logger.info(f'[{PLUGIN_ID}] 已加载')
 
     def _gid(self) -> int:
@@ -139,13 +141,27 @@ class Main(Star):
 
     @filter.llm_tool(name="send_poke")
     async def send_poke(self, event: AstrMessageEvent, target_qq: str) -> str:
-        '''发送戳一戳（窗口抖动/双击头像效果）。
+        '''发送戳一戳（窗口抖动/双击头像效果）。群聊中会戳当前群的成员，私聊中戳好友。
 
         Args:
             target_qq(string): 目标QQ号
         '''
+        POKE_CD = 10  # 每个用户 10 秒冷却
         self._set_client(event)
-        r = await messaging.send_poke(self.client, target_qq)
+
+        # 冷却检查
+        last = self._poke_cooldowns.get(target_qq, 0)
+        now = time.time()
+        remaining = POKE_CD - (now - last)
+        if remaining > 0:
+            return json.dumps(
+                {"ok": False, "detail": f"「戳一戳」冷却中，请 {remaining:.0f} 秒后再戳 {target_qq}"},
+                ensure_ascii=False,
+            )
+
+        gid = self._gid()
+        r = await messaging.send_poke(self.client, target_qq, group_id=gid)
+        self._poke_cooldowns[target_qq] = now
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="send_like")
