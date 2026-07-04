@@ -15,7 +15,6 @@ astrbot_plugin_napcat/
 ├── main.py              # 入口：Main 类、生命周期、工具注册
 ├── qq_tools/            # 功能模块包
 │   ├── __init__.py
-│   ├── registry.py      # ToolRegistry — LLM 工具注册与分发
 │   ├── utils.py         # 公共函数（错误脱敏、截断、图片解析）
 │   ├── constants.py     # QQ 状态预设常量
 │   ├── status_ctrl.py   # StatusController — QQ 在线状态控制
@@ -60,7 +59,6 @@ git clone https://github.com/reine-ishyanami/astrbot_plugin_napcat.git
 | `max_output_chars` | `int` | `2000` | 工具返回内容最大字符数，0 为不限制 |
 | `ai_voice_default_character` | `str` | `""` | AI 语音默认角色 ID（例如 luoli、yujie），可通过 `/ai_characters` 查看可用角色 |
 | `ai_voice_max_text_length` | `int` | `500` | AI 语音文本最大长度，腾讯限制约 500 字符 |
-| `enable_<工具名>` | `bool` | `true` | 各工具独立启用开关，共 35 个，详见 `_conf_schema.json` |
 
 ## 指令列表
 
@@ -148,20 +146,9 @@ git clone https://github.com/reine-ishyanami/astrbot_plugin_napcat.git
 
 ## 函数调用 / 对外接口
 
-> 必填章节。列出插件暴露给其他插件或开发者调用的公共函数、类、事件钩子。
+> 必填章节。
 
-### `ToolRegistry.register(name, description, params, handler, config_key)`
-
-向工具注册表注册一个新的 LLM 可调用工具。
-
-- **所在模块**：`qq_tools.registry`
-- **参数说明**：
-  - `name`：工具名称（LLM 调用时使用）
-  - `description`：工具描述（注入到系统提示词）
-  - `params`：参数字典
-  - `handler`：异步回调函数
-  - `config_key`：对应的 `enable_xxx` 配置键
-- **返回值**：无
+所有工具通过 `@filter.llm_tool` 装饰器直接注册在 `Main` 类上，LLM 可直接按名称调用，无需额外分发层。
 
 ### 领域模块函数
 
