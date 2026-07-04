@@ -2,39 +2,25 @@
 """
 astrbot_plugin_napcat — NapCat 工具
 =====================================
-入口模块：插件生命周期、上下文管理、工具注册。
+入口模块：插件生命周期、工具注册（@filter.llm_tool 装饰器）。
 
 目录结构：
   main.py            入口 & Main 类
   qq_tools/          功能模块包
     registry.py      工具注册表
-    utils.py         公共工具函数
-    constants.py     QQ 状态常量
-    status_ctrl.py   QQ 在线状态控制器
-    messaging.py     消息收发 / 戳一戳 / 点赞
-    contacts.py      联系人搜索 / 列表 / 身份
-    qq_status.py     QQ 状态工具
-    group_members.py 群成员控制（禁言/踢人/名片/管理员/头衔）
-    group_files.py   群文件 & 群公告
-    group_settings.py 群设置 & 信息查询
-    email_sender.py  QQ 邮件
-    voice.py         AI 语音
-    profile.py       个人资料
-    history.py       历史消息
+    ...
 """
 import asyncio
 from datetime import datetime
 from typing import Optional
 
 from astrbot.api import logger
-from astrbot.api.event import AstrMessageEvent
+from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
 
-from .qq_tools.registry import ToolRegistry
 from .qq_tools.status_ctrl import StatusController
-
 from .qq_tools import messaging
 from .qq_tools import contacts as contacts_mod
 from .qq_tools import qq_status as status_mod
@@ -54,26 +40,23 @@ class Main(Star):
         self.config = config
         self.client = None
         self.current_group_id = 0
-
-        self.tools = ToolRegistry(self)
         self.status_ctrl = StatusController(lambda: self.client)
 
         self._contacts: Optional[dict] = None
         self._contacts_ts: Optional[datetime] = None
         self._contacts_lock = asyncio.Lock()
 
-        self._register_tools()
-        logger.info(f'[{PLUGIN_ID}] 已启动 — {len(self.tools._defs)} 个工具就绪')
+        logger.info(f'[{PLUGIN_ID}] 已加载')
 
-    async def _on_message(self, event: AstrMessageEvent):
-        if isinstance(event, AiocqhttpMessageEvent):
-            self.client = event.bot
-            try:
-                raw = getattr(event, 'message_obj', None)
-                if raw and hasattr(raw, 'group_id'):
-                    self.current_group_id = int(raw.group_id)
-            except Exception:
-                pass
+    # ── 上下文 ──
+
+    def _gid(self) -> int:
+        return self.current_group_id
+
+    def _cfg(self) -> dict:
+        return self.config or {}
+
+    # ── 联系人缓存 ──
 
     async def _load_contacts(self) -> dict:
         async with self._contacts_lock:
@@ -89,160 +72,248 @@ class Main(Star):
                 logger.error(f'[{PLUGIN_ID}] 联系人加载失败: {e}')
             return self._contacts or {'friends': [], 'groups': []}
 
-    def _register_tools(self):
-        t = self.tools
-        cfg = self.config or {}
-        gid = lambda: self.current_group_id
+    # ── 消息 ──
 
-        # ── 消息 ──
-        t.register('send_message', '向群聊或好友发送消息',
-                   {'target_id': 'string', 'message': 'string', 'chat_type': 'string'},
-                   lambda **kw: messaging.send_message(self.client, **kw), 'enable_send_message')
-        t.register('send_poke', '发送戳一戳',
-                   {'target_qq': 'string'},
-                   lambda **kw: messaging.send_poke(self.client, **kw), 'enable_send_poke')
-        t.register('send_like', '给用户点赞',
-                   {'user_id': 'string', 'times': 'integer'},
-                   lambda **kw: messaging.send_like(self.client, **kw), 'enable_send_like')
+    @filter.llm_tool(name="send_message")
+    async def send_message(self, event: AstrMessageEvent, target_id: str,
+                           message: str, chat_type: str = "group") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await messaging.send_message(self.client, target_id, message, chat_type)
 
-        # ── 联系人 ──
-        t.register('search_contacts', '按名称/QQ号模糊搜索好友和群',
-                   {'keyword': 'string', 'search_type': 'string'},
-                   lambda **kw: contacts_mod.search_contacts(
-                       self.client, self._contacts or {}, **kw), 'enable_search_contacts')
-        t.register('list_contacts', '列出好友或群聊列表',
-                   {'contact_type': 'string'},
-                   lambda **kw: contacts_mod.list_contacts(
-                       self._contacts or {}, **kw), 'enable_list_contacts')
-        t.register('get_user_group_role', '查询群成员身份',
-                   {'user_id': 'string', 'group_id': 'string'},
-                   lambda **kw: contacts_mod.get_user_group_role(self.client, **kw),
-                   'enable_get_user_group_role')
+    @filter.llm_tool(name="send_poke")
+    async def send_poke(self, event: AstrMessageEvent, target_qq: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await messaging.send_poke(self.client, target_qq)
 
-        # ── QQ 状态 ──
-        t.register('update_qq_status', '设置QQ在线状态（在线/离开/忙碌/隐身/听歌中/睡觉中/学习中）',
-                   {'status': 'string', 'duration_minutes': 'integer'},
-                   lambda **kw: status_mod.update_qq_status(self.status_ctrl, **kw),
-                   'enable_update_qq_status')
-        t.register('get_qq_status', '查看当前QQ状态', {},
-                   lambda **kw: status_mod.get_qq_status(self.status_ctrl),
-                   'enable_get_qq_status')
-        t.register('get_fun_status_list', '获取娱乐状态列表', {},
-                   lambda **kw: status_mod.get_fun_status_list(),
-                   'enable_get_fun_status_list')
+    @filter.llm_tool(name="send_like")
+    async def send_like(self, event: AstrMessageEvent, user_id: str, times: int = 1) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await messaging.send_like(self.client, user_id, times)
 
-        # ── 群管理：成员控制 ──
-        t.register('set_group_ban', '禁言/解禁群成员',
-                   {'user_id': 'string', 'duration': 'integer'},
-                   lambda **kw: group_members.set_group_ban(self.client, gid(), **kw),
-                   'enable_set_group_ban')
-        t.register('set_group_kick', '踢出群成员',
-                   {'user_id': 'string', 'reject_add_request': 'boolean'},
-                   lambda **kw: group_members.set_group_kick(self.client, gid(), **kw),
-                   'enable_set_group_kick')
-        t.register('set_group_card', '修改群名片',
-                   {'user_id': 'string', 'card': 'string'},
-                   lambda **kw: group_members.set_group_card(self.client, gid(), **kw),
-                   'enable_set_group_card')
-        t.register('set_group_admin', '设置/取消管理员',
-                   {'user_id': 'string', 'enable': 'boolean'},
-                   lambda **kw: group_members.set_group_admin(self.client, gid(), **kw),
-                   'enable_set_group_admin')
-        t.register('set_group_special_title', '设置专属头衔',
-                   {'user_id': 'string', 'special_title': 'string'},
-                   lambda **kw: group_members.set_group_special_title(self.client, gid(), **kw),
-                   'enable_set_group_special_title')
+    # ── 联系人 ──
 
-        # ── 群管理：文件 & 公告 ──
-        t.register('send_group_notice', '发布群公告',
-                   {'content': 'string'},
-                   lambda **kw: group_files.send_group_notice(self.client, gid(), **kw),
-                   'enable_send_group_notice')
-        t.register('delete_group_notice', '删除群公告',
-                   {'notice_id': 'string'},
-                   lambda **kw: group_files.delete_group_notice(self.client, gid(), **kw),
-                   'enable_delete_group_notice')
-        t.register('get_group_notice_list', '查看群公告列表', {},
-                   lambda **kw: group_files.get_group_notice_list(self.client, gid()),
-                   'enable_get_group_notice_list')
-        t.register('list_group_files', '查看群文件', {},
-                   lambda **kw: group_files.list_group_files(self.client, gid()),
-                   'enable_list_group_files')
-        t.register('delete_group_file', '删除群文件',
-                   {'file_id': 'string', 'busid': 'integer'},
-                   lambda **kw: group_files.delete_group_file(self.client, gid(), **kw),
-                   'enable_delete_group_file')
-        t.register('upload_group_file', '上传群文件',
-                   {'file_path': 'string', 'name': 'string'},
-                   lambda **kw: group_files.upload_group_file(self.client, gid(), **kw),
-                   'enable_upload_group_file')
-        t.register('create_group_file_folder', '创建群文件夹',
-                   {'name': 'string'},
-                   lambda **kw: group_files.create_group_file_folder(self.client, gid(), **kw),
-                   'enable_create_group_file_folder')
-        t.register('delete_group_folder', '删除群文件夹',
-                   {'folder_id': 'string'},
-                   lambda **kw: group_files.delete_group_folder(self.client, gid(), **kw),
-                   'enable_delete_group_folder')
+    @filter.llm_tool(name="search_contacts")
+    async def search_contacts(self, event: AstrMessageEvent, keyword: str,
+                              search_type: str = "all") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await contacts_mod.search_contacts(
+            self.client, self._contacts or {}, keyword, search_type)
 
-        # ── 群管理：设置 & 查询 ──
-        t.register('set_group_whole_ban', '全体禁言开关',
-                   {'enable': 'boolean'},
-                   lambda **kw: group_settings.set_group_whole_ban(self.client, gid(), **kw),
-                   'enable_set_group_whole_ban')
-        t.register('set_group_name', '修改群名称',
-                   {'group_name': 'string'},
-                   lambda **kw: group_settings.set_group_name(self.client, gid(), **kw),
-                   'enable_set_group_name')
-        t.register('set_group_add_option', '设置加群方式',
-                   {'option': 'string'},
-                   lambda **kw: group_settings.set_group_add_option(self.client, gid(), **kw),
-                   'enable_set_group_add_option')
-        t.register('send_group_sign', '群打卡', {},
-                   lambda **kw: group_settings.send_group_sign(self.client, gid()),
-                   'enable_send_group_sign')
-        t.register('get_group_members_info', '获取群成员列表', {},
-                   lambda **kw: group_settings.get_group_members_info(self.client, gid()),
-                   'enable_get_group_members_info')
-        t.register('get_group_honor_info', '查看群荣誉（龙王等）',
-                   {'type': 'string'},
-                   lambda **kw: group_settings.get_group_honor_info(self.client, gid(), **kw),
-                   'enable_get_group_honor_info')
-        t.register('get_group_shut_list', '获取禁言列表', {},
-                   lambda **kw: group_settings.get_group_shut_list(self.client, gid()),
-                   'enable_get_group_shut_list')
-        t.register('get_group_at_all_remain', '查询@全体剩余次数', {},
-                   lambda **kw: group_settings.get_group_at_all_remain(self.client, gid()),
-                   'enable_get_group_at_all_remain')
+    @filter.llm_tool(name="list_contacts")
+    async def list_contacts(self, event: AstrMessageEvent, contact_type: str = "all") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await contacts_mod.list_contacts(self._contacts or {}, contact_type)
 
-        # ── AI 语音 ──
-        t.register('get_ai_characters', '获取可用的AI语音角色', {},
-                   lambda **kw: voice.get_ai_characters(self.client),
-                   'enable_get_ai_characters')
-        t.register('send_ai_voice', '发送AI语音消息（群聊）',
-                   {'text': 'string', 'character_id': 'string'},
-                   lambda **kw: voice.send_ai_voice(self.client, cfg, gid(), **kw),
-                   'enable_send_ai_voice')
+    @filter.llm_tool(name="get_user_group_role")
+    async def get_user_group_role(self, event: AstrMessageEvent, user_id: str,
+                                  group_id: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await contacts_mod.get_user_group_role(self.client, user_id, group_id)
 
-        # ── 个人资料 ──
-        t.register('set_qq_profile', '修改机器人昵称/签名',
-                   {'nickname': 'string', 'personal_note': 'string'},
-                   lambda **kw: profile.set_qq_profile(self.client, **kw),
-                   'enable_set_qq_profile')
-        t.register('set_qq_avatar', '设置QQ头像',
-                   {'file': 'string'},
-                   lambda **kw: profile.set_qq_avatar(self.client, **kw),
-                   'enable_set_qq_avatar')
+    # ── QQ 状态 ──
 
-        # ── 历史消息 ──
-        t.register('get_group_msg_history', '获取群历史消息',
-                   {'group_id': 'string', 'count': 'integer'},
-                   lambda **kw: history.get_group_msg_history(
-                       self.client, int(kw.get('group_id', 0)) or gid(), kw.get('count', 20)),
-                   'enable_get_group_msg_history')
-        t.register('get_friend_msg_history', '获取好友历史消息',
-                   {'user_id': 'string', 'count': 'integer'},
-                   lambda **kw: history.get_friend_msg_history(self.client, **kw),
-                   'enable_get_friend_msg_history')
+    @filter.llm_tool(name="update_qq_status")
+    async def update_qq_status(self, event: AstrMessageEvent, status: str,
+                               duration_minutes: int = 30) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await status_mod.update_qq_status(self.status_ctrl, status, duration_minutes)
 
-        t.register_all(cfg)
+    @filter.llm_tool(name="get_qq_status")
+    async def get_qq_status(self, event: AstrMessageEvent) -> dict:
+        return status_mod.get_qq_status(self.status_ctrl)
+
+    @filter.llm_tool(name="get_fun_status_list")
+    async def get_fun_status_list(self, event: AstrMessageEvent) -> dict:
+        return await status_mod.get_fun_status_list()
+
+    # ── 群成员控制 ──
+
+    @filter.llm_tool(name="set_group_ban")
+    async def set_group_ban(self, event: AstrMessageEvent, user_id: str,
+                            duration: int) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_members.set_group_ban(self.client, self._gid(), user_id, duration)
+
+    @filter.llm_tool(name="set_group_kick")
+    async def set_group_kick(self, event: AstrMessageEvent, user_id: str,
+                             reject_add_request: bool = False) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_members.set_group_kick(self.client, self._gid(), user_id, reject_add_request)
+
+    @filter.llm_tool(name="set_group_card")
+    async def set_group_card(self, event: AstrMessageEvent, user_id: str, card: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_members.set_group_card(self.client, self._gid(), user_id, card)
+
+    @filter.llm_tool(name="set_group_admin")
+    async def set_group_admin(self, event: AstrMessageEvent, user_id: str,
+                              enable: bool) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_members.set_group_admin(self.client, self._gid(), user_id, enable)
+
+    @filter.llm_tool(name="set_group_special_title")
+    async def set_group_special_title(self, event: AstrMessageEvent, user_id: str,
+                                      special_title: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_members.set_group_special_title(self.client, self._gid(), user_id, special_title)
+
+    # ── 群文件 & 公告 ──
+
+    @filter.llm_tool(name="send_group_notice")
+    async def send_group_notice(self, event: AstrMessageEvent, content: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.send_group_notice(self.client, self._gid(), content)
+
+    @filter.llm_tool(name="delete_group_notice")
+    async def delete_group_notice(self, event: AstrMessageEvent, notice_id: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.delete_group_notice(self.client, self._gid(), notice_id)
+
+    @filter.llm_tool(name="get_group_notice_list")
+    async def get_group_notice_list(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.get_group_notice_list(self.client, self._gid())
+
+    @filter.llm_tool(name="list_group_files")
+    async def list_group_files(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.list_group_files(self.client, self._gid())
+
+    @filter.llm_tool(name="delete_group_file")
+    async def delete_group_file(self, event: AstrMessageEvent, file_id: str,
+                                busid: int = 102) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.delete_group_file(self.client, self._gid(), file_id, busid)
+
+    @filter.llm_tool(name="upload_group_file")
+    async def upload_group_file(self, event: AstrMessageEvent, file_path: str,
+                                name: str = "") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.upload_group_file(self.client, self._gid(), file_path, name)
+
+    @filter.llm_tool(name="create_group_file_folder")
+    async def create_group_file_folder(self, event: AstrMessageEvent, name: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.create_group_file_folder(self.client, self._gid(), name)
+
+    @filter.llm_tool(name="delete_group_folder")
+    async def delete_group_folder(self, event: AstrMessageEvent, folder_id: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_files.delete_group_folder(self.client, self._gid(), folder_id)
+
+    # ── 群设置 & 查询 ──
+
+    @filter.llm_tool(name="set_group_whole_ban")
+    async def set_group_whole_ban(self, event: AstrMessageEvent, enable: bool) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.set_group_whole_ban(self.client, self._gid(), enable)
+
+    @filter.llm_tool(name="set_group_name")
+    async def set_group_name(self, event: AstrMessageEvent, group_name: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.set_group_name(self.client, self._gid(), group_name)
+
+    @filter.llm_tool(name="set_group_add_option")
+    async def set_group_add_option(self, event: AstrMessageEvent, option: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.set_group_add_option(self.client, self._gid(), option)
+
+    @filter.llm_tool(name="send_group_sign")
+    async def send_group_sign(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.send_group_sign(self.client, self._gid())
+
+    @filter.llm_tool(name="get_group_members_info")
+    async def get_group_members_info(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.get_group_members_info(self.client, self._gid())
+
+    @filter.llm_tool(name="get_group_honor_info")
+    async def get_group_honor_info(self, event: AstrMessageEvent, type: str = "all") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.get_group_honor_info(self.client, self._gid(), type)
+
+    @filter.llm_tool(name="get_group_shut_list")
+    async def get_group_shut_list(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.get_group_shut_list(self.client, self._gid())
+
+    @filter.llm_tool(name="get_group_at_all_remain")
+    async def get_group_at_all_remain(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await group_settings.get_group_at_all_remain(self.client, self._gid())
+
+    # ── AI 语音 ──
+
+    @filter.llm_tool(name="get_ai_characters")
+    async def get_ai_characters(self, event: AstrMessageEvent) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await voice.get_ai_characters(self.client)
+
+    @filter.llm_tool(name="send_ai_voice")
+    async def send_ai_voice(self, event: AstrMessageEvent, text: str,
+                            character_id: str = "") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        return await voice.send_ai_voice(self.client, self._cfg(), self._gid(), text, character_id)
+
+    # ── 个人资料 ──
+
+    @filter.llm_tool(name="set_qq_profile")
+    async def set_qq_profile(self, event: AstrMessageEvent, nickname: str = "",
+                             personal_note: str = "") -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await profile.set_qq_profile(self.client, nickname, personal_note)
+
+    @filter.llm_tool(name="set_qq_avatar")
+    async def set_qq_avatar(self, event: AstrMessageEvent, file: str) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await profile.set_qq_avatar(self.client, file)
+
+    # ── 历史消息 ──
+
+    @filter.llm_tool(name="get_group_msg_history")
+    async def get_group_msg_history(self, event: AstrMessageEvent,
+                                    group_id: str = "", count: int = 20) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        self._set_gid(event)
+        gid = int(group_id) if group_id else self._gid()
+        return await history.get_group_msg_history(self.client, gid, count)
+
+    @filter.llm_tool(name="get_friend_msg_history")
+    async def get_friend_msg_history(self, event: AstrMessageEvent,
+                                     user_id: str, count: int = 20) -> dict:
+        self.client = event.bot if isinstance(event, AiocqhttpMessageEvent) else self.client
+        return await history.get_friend_msg_history(self.client, user_id, count)
+
+    # ── 辅助 ──
+
+    def _set_gid(self, event: AstrMessageEvent):
+        if isinstance(event, AiocqhttpMessageEvent):
+            try:
+                raw = getattr(event, 'message_obj', None)
+                if raw and hasattr(raw, 'group_id'):
+                    self.current_group_id = int(raw.group_id)
+            except Exception:
+                pass
