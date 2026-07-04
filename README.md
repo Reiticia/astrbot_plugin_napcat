@@ -59,6 +59,7 @@ git clone https://github.com/reine-ishyanami/astrbot_plugin_napcat.git
 | `max_output_chars` | `int` | `2000` | 工具返回内容最大字符数，0 为不限制 |
 | `ai_voice_default_character` | `str` | `""` | AI 语音默认角色 ID（例如 luoli、yujie），可通过 `/ai_characters` 查看可用角色 |
 | `ai_voice_max_text_length` | `int` | `500` | AI 语音文本最大长度，腾讯限制约 500 字符 |
+| `enable_<工具名>` | `bool` | `true` | 各工具启用开关，共 35 个，默认全部开启 |
 
 ## 指令列表
 
