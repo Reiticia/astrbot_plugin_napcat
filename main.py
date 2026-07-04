@@ -55,7 +55,7 @@ class Main(Star):
         self.client = None
         self.current_group_id = 0
 
-        self.tools = ToolRegistry()
+        self.tools = ToolRegistry(self)
         self.status_ctrl = StatusController(lambda: self.client)
 
         self._contacts: Optional[dict] = None
@@ -245,4 +245,4 @@ class Main(Star):
                    lambda **kw: history.get_friend_msg_history(self.client, **kw),
                    'enable_get_friend_msg_history')
 
-        t.register_all_to(self, cfg)
+        t.register_all(cfg)

@@ -5,7 +5,8 @@ from astrbot.api.star import Star
 
 
 class ToolRegistry:
-    def __init__(self):
+    def __init__(self, star: Star):
+        self._star = star
         self._defs: Dict[str, dict] = {}
         self._handlers: Dict[str, Callable] = {}
 
@@ -17,16 +18,19 @@ class ToolRegistry:
         }
         self._handlers[name] = handler
 
-    def register_all_to(self, star: Star, config: dict):
+    def register_all(self, config: dict):
         """向 AstrBot 注册所有未禁用的工具。"""
         from astrbot.core.star.star_tools import StarTools
         for name, defn in self._defs.items():
             if defn['cfg'] and not config.get(defn['cfg'], True):
                 continue
-            star.context.register_tool(
-                name=defn['name'], description=defn['desc'],
-                parameters=defn['params'], handler=self._handlers[name],
+            tool = StarTools(
+                name=defn['name'],
+                description=defn['desc'],
+                parameters=defn['params'],
+                handler=self._handlers[name],
             )
+            self._star.context.register_tool(tool)
 
     async def dispatch(self, tool_name: str, **kwargs) -> dict:
         handler = self._handlers.get(tool_name)
