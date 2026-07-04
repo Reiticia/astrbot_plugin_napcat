@@ -33,6 +33,12 @@
         "default": true,
         "hint": "禁言时效后可自动恢复"
     },
+    "ban_whitelist": {
+        "description": "禁言保护白名单（QQ号列表），白名单中的用户无法被禁言",
+        "type": "list",
+        "default": [],
+        "hint": "多个QQ号用英文逗号分隔，如：10001,10002"
+    },
     "allow_whole_ban": {
         "description": "允许 LLM 全体禁言",
         "type": "bool",

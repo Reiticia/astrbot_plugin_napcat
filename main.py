@@ -55,6 +55,19 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": f"「{name}」已被管理员禁用，如需使用请在插件配置中开启 {key}"}, ensure_ascii=False)
         return None
 
+    def _check_ban_whitelist(self, user_id: str) -> str | None:
+        '''检查用户是否在禁言白名单中，在则返回拒绝原因。'''
+        whitelist = self._cfg().get("ban_whitelist", [])
+        if not whitelist:
+            return None
+        uid = str(user_id).strip()
+        if uid in {str(x).strip() for x in whitelist}:
+            return json.dumps(
+                {"ok": False, "detail": f"「禁言」失败：用户 {uid} 在禁言保护白名单中，无法被禁言"},
+                ensure_ascii=False,
+            )
+        return None
+
     async def _load_contacts(self) -> Dict:
         async with self._contacts_lock:
             now = datetime.now()
@@ -222,6 +235,7 @@ class Main(Star):
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_ban", "禁言"): return r
+        if r := self._check_ban_whitelist(user_id): return r
         r = await group_members.set_group_ban(self.client, self._gid(), user_id, duration)
         return json.dumps(r, ensure_ascii=False)
 
