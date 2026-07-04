@@ -12,7 +12,6 @@ from astrbot.api import logger
 from astrbot.api.event import filter, AstrMessageEvent
 from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
 
 from .qq_tools.status_ctrl import StatusController
 from .qq_tools import messaging
@@ -71,17 +70,32 @@ class Main(Star):
             return self._contacts or {'friends': [], 'groups': []}
 
     def _set_client(self, event: AstrMessageEvent):
-        if isinstance(event, AiocqhttpMessageEvent):
-            self.client = event.bot
+        """设置 NapCat 客户端实例。
+
+        优先使用 event.bot，若不存在则保留上次成功设置的 client。
+        使用 duck-typing 而非 isinstance，兼容不同 AstrBot 版本的 event 包装。
+        """
+        bot = getattr(event, 'bot', None)
+        if bot is not None:
+            self.client = bot
 
     def _set_gid(self, event: AstrMessageEvent):
-        if isinstance(event, AiocqhttpMessageEvent):
-            try:
-                raw = getattr(event, 'message_obj', None)
-                if raw and hasattr(raw, 'group_id'):
-                    self.current_group_id = int(raw.group_id)
-            except Exception:
-                pass
+        """从 event 中提取当前群号。"""
+        try:
+            raw = getattr(event, 'message_obj', None)
+            if raw and hasattr(raw, 'group_id'):
+                self.current_group_id = int(raw.group_id)
+        except Exception:
+            pass
+
+    def _require_client(self, name: str = "操作") -> str | None:
+        """确保 client 已初始化，未初始化时返回错误信息。"""
+        if self.client is None:
+            return json.dumps(
+                {"ok": False, "detail": f"「{name}」失败：未连接到 NapCat，请确认 astrbot_plugin_napcat 插件已正常加载"},
+                ensure_ascii=False,
+            )
+        return None
 
     # ═══ 消息 ═══
 
