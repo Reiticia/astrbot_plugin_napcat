@@ -22,33 +22,69 @@
     },
 
     "allow_kick": {
-        "description": "是否允许 LLM 踢人",
+        "description": "允许 LLM 踢出群成员",
         "type": "bool",
         "default": false,
-        "hint": "⚠️ 高危操作，踢出后不可自动恢复"
+        "hint": "⚠️ 踢出后不可自动恢复"
     },
-    "allow_admin_ops": {
-        "description": "是否允许 LLM 执行管理员操作（设管理员、改群名、改加群方式）",
+    "allow_ban": {
+        "description": "允许 LLM 禁言群成员",
+        "type": "bool",
+        "default": true,
+        "hint": "禁言时效后可自动恢复"
+    },
+    "allow_whole_ban": {
+        "description": "允许 LLM 全体禁言",
         "type": "bool",
         "default": false,
-        "hint": "⚠️ 包含提权操作，建议谨慎开启"
+        "hint": "⚠️ 影响全群发言"
     },
-    "allow_delete_ops": {
-        "description": "是否允许 LLM 删除群公告、群文件、群文件夹",
+    "allow_set_admin": {
+        "description": "允许 LLM 设置/取消管理员",
         "type": "bool",
         "default": false,
-        "hint": "⚠️ 删除不可逆，建议仅在受控环境中开启"
+        "hint": "⚠️ 涉及群内提权操作"
     },
-    "allow_profile_edit": {
-        "description": "是否允许 LLM 修改机器人 QQ 资料和头像",
+    "allow_set_group_name": {
+        "description": "允许 LLM 修改群名称",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 修改群名影响群标识"
+    },
+    "allow_set_add_option": {
+        "description": "允许 LLM 修改加群方式",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 可能影响群的准入策略"
+    },
+    "allow_delete_notice": {
+        "description": "允许 LLM 删除群公告",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 删除后不可恢复"
+    },
+    "allow_delete_file": {
+        "description": "允许 LLM 删除群文件",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 删除后不可恢复"
+    },
+    "allow_delete_folder": {
+        "description": "允许 LLM 删除群文件夹",
+        "type": "bool",
+        "default": false,
+        "hint": "⚠️ 删除文件夹将一并删除内部所有文件"
+    },
+    "allow_set_profile": {
+        "description": "允许 LLM 修改机器人昵称/签名",
         "type": "bool",
         "default": false,
         "hint": "⚠️ 防止 LLM 误改机器人身份信息"
     },
-    "allow_ban": {
-        "description": "是否允许 LLM 禁言和全体禁言",
+    "allow_set_avatar": {
+        "description": "允许 LLM 修改机器人 QQ 头像",
         "type": "bool",
-        "default": true,
-        "hint": "禁言时效后可自动恢复，相对安全"
+        "default": false,
+        "hint": "⚠️ 防止 LLM 误改机器人头像"
     }
 }
