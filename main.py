@@ -263,9 +263,16 @@ class Main(Star):
             duration(number): 禁言时长（秒），0表示解除禁言
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_ban", "禁言"): return r
-        if r := self._check_ban_whitelist(user_id): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_ban", "禁言")
+        if r:
+
+            return r
+        r = self._check_ban_whitelist(user_id)
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_ban(self.client, gid, user_id, duration)
         return json.dumps(r, ensure_ascii=False)
@@ -279,8 +286,12 @@ class Main(Star):
             reject_add_request(boolean): 是否同时拒绝该用户再次申请加群，默认false
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_kick", "踢人"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_kick", "踢人")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_kick(self.client, gid, user_id, reject_add_request)
         return json.dumps(r, ensure_ascii=False)
@@ -294,7 +305,8 @@ class Main(Star):
             card(string): 新的群名片内容
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_card(self.client, gid, user_id, card)
         return json.dumps(r, ensure_ascii=False)
@@ -308,8 +320,12 @@ class Main(Star):
             enable(boolean): true=设为管理员 / false=取消管理员
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_set_admin", "设置管理员"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_set_admin", "设置管理员")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_admin(self.client, gid, user_id, enable)
         return json.dumps(r, ensure_ascii=False)
@@ -323,7 +339,8 @@ class Main(Star):
             special_title(string): 专属头衔文字，留空为取消头衔
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_special_title(self.client, gid, user_id, special_title)
         return json.dumps(r, ensure_ascii=False)
@@ -338,7 +355,8 @@ class Main(Star):
             content(string): 公告正文内容
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.send_group_notice(self.client, gid, content)
         return json.dumps(r, ensure_ascii=False)
@@ -351,8 +369,12 @@ class Main(Star):
             notice_id(string): 公告ID（可通过 get_group_notice_list 获取）
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_delete_notice", "删除群公告"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_delete_notice", "删除群公告")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_files.delete_group_notice(self.client, gid, notice_id)
         return json.dumps(r, ensure_ascii=False)
@@ -364,7 +386,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.get_group_notice_list(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -376,7 +399,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.list_group_files(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -390,8 +414,12 @@ class Main(Star):
             busid(number): 文件类型标识，默认102
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_delete_file", "删除群文件"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_delete_file", "删除群文件")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_files.delete_group_file(self.client, gid, file_id, busid)
         return json.dumps(r, ensure_ascii=False)
@@ -405,7 +433,8 @@ class Main(Star):
             name(string): 上传后在群文件中显示的名称，留空则使用原文件名
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.upload_group_file(self.client, gid, file_path, name)
         return json.dumps(r, ensure_ascii=False)
@@ -418,7 +447,8 @@ class Main(Star):
             name(string): 文件夹名称
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.create_group_file_folder(self.client, gid, name)
         return json.dumps(r, ensure_ascii=False)
@@ -431,8 +461,12 @@ class Main(Star):
             folder_id(string): 文件夹ID
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_delete_folder", "删除群文件夹"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_delete_folder", "删除群文件夹")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_files.delete_group_folder(self.client, gid, folder_id)
         return json.dumps(r, ensure_ascii=False)
@@ -447,8 +481,12 @@ class Main(Star):
             enable(boolean): true=开启全体禁言 / false=关闭全体禁言
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_whole_ban", "全体禁言"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_whole_ban", "全体禁言")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_settings.set_group_whole_ban(self.client, gid, enable)
         return json.dumps(r, ensure_ascii=False)
@@ -461,8 +499,12 @@ class Main(Star):
             group_name(string): 新的群名称
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_set_group_name", "修改群名称"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_set_group_name", "修改群名称")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_settings.set_group_name(self.client, gid, group_name)
         return json.dumps(r, ensure_ascii=False)
@@ -475,8 +517,12 @@ class Main(Star):
             option(string): allow=允许任何人 / verify=需要验证消息 / deny=禁止加群
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
-        if r := self._guard("allow_set_add_option", "设置加群方式"): return r
+        self._set_client(event)
+        self._set_gid(event)
+        r = self._guard("allow_set_add_option", "设置加群方式")
+        if r:
+
+            return r
         gid = self._resolve_gid(group_id)
         r = await group_settings.set_group_add_option(self.client, gid, option)
         return json.dumps(r, ensure_ascii=False)
@@ -488,7 +534,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.send_group_sign(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -500,7 +547,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_members_info(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -513,7 +561,8 @@ class Main(Star):
             type(string): 荣誉类型：talkative(龙王) / performer(群聊之火) / emotion(快乐源泉) / all(全部，默认)
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_honor_info(self.client, gid, type)
         return json.dumps(r, ensure_ascii=False)
@@ -525,7 +574,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_shut_list(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -537,7 +587,8 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_at_all_remain(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
@@ -560,7 +611,8 @@ class Main(Star):
             character_id(string): 语音角色ID，留空则使用插件配置的默认角色。可用角色通过 get_ai_characters 查询
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await voice.send_ai_voice(self.client, self._cfg(), gid, text, character_id)
         return json.dumps(r, ensure_ascii=False)
@@ -576,7 +628,10 @@ class Main(Star):
             personal_note(string): 新个性签名，留空则不修改
         '''
         self._set_client(event)
-        if r := self._guard("allow_set_profile", "修改个人资料"): return r
+        r = self._guard("allow_set_profile", "修改个人资料")
+        if r:
+
+            return r
         r = await profile.set_qq_profile(self.client, nickname, personal_note)
         return json.dumps(r, ensure_ascii=False)
 
@@ -588,7 +643,10 @@ class Main(Star):
             file(string): 图片路径（本地绝对路径 / base64://格式 / http(s)://URL）
         '''
         self._set_client(event)
-        if r := self._guard("allow_set_avatar", "修改QQ头像"): return r
+        r = self._guard("allow_set_avatar", "修改QQ头像")
+        if r:
+
+            return r
         r = await profile.set_qq_avatar(self.client, file)
         return json.dumps(r, ensure_ascii=False)
 
@@ -602,7 +660,8 @@ class Main(Star):
             group_id(string): 群号，留空则获取当前群聊的历史消息
             count(number): 获取条数，默认20条
         '''
-        self._set_client(event); self._set_gid(event)
+        self._set_client(event)
+        self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await history.get_group_msg_history(self.client, gid, count)
         return json.dumps(r, ensure_ascii=False)
