@@ -7,7 +7,7 @@ async def update_qq_status(status_ctrl, status: str, duration_minutes: int = 30)
     return await status_ctrl.set(status, duration_minutes)
 
 
-async def get_qq_status(status_ctrl) -> dict:
+def get_qq_status(status_ctrl) -> dict:
     return status_ctrl.describe()
 
 

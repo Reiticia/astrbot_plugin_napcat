@@ -28,10 +28,6 @@ from .qq_tools import history
 PLUGIN_ID = "astrbot_plugin_napcat"
 
 
-def _ok(detail: str = "", result: str = "") -> str:
-    return json.dumps({"ok": True, "detail": detail, "result": result}, ensure_ascii=False)
-
-
 class Main(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
@@ -79,7 +75,7 @@ class Main(Star):
         """加载联系人缓存（群列表 + 好友列表），300 秒内命中缓存。"""
         async with self._contacts_lock:
             now = datetime.now()
-            if self._contacts and self._contacts_ts and (now - self._contacts_ts).seconds < 300:
+            if self._contacts and self._contacts_ts and (now - self._contacts_ts).total_seconds() < 300:
                 return self._contacts
             try:
                 friends_raw = await self.client.call_action('get_friend_list')
@@ -137,27 +133,6 @@ class Main(Star):
             logger.debug(f"[{PLUGIN_ID}] 从 platform_manager 获取 client 失败: {e}")
         return None
 
-    def _set_client(self, event: AstrMessageEvent):
-        """向后兼容：委托给 _get_client（同步包装，忽略返回值）。"""
-        pass  # 废弃，保留签名供旧调用方兼容
-
-    def _ensure_client(self, event: AstrMessageEvent, name: str = "操作") -> str | None:
-        """确保 client 可用：先尝试获取，失败返回错误 JSON。"""
-        client = self.client
-        if client is not None and hasattr(client, 'call_action'):
-            return None  # 已有有效 client，直接返回
-        # 异步获取不可在此处 await，由各工具开头调用
-        return None  # 各工具开头异步调用 _set_client_and_check
-
-    async def _set_client_and_check(self, event: AstrMessageEvent, name: str = "操作") -> str | None:
-        """异步获取 client 并检查，失败时返回错误 JSON。"""
-        client = await self._get_client(event)
-        if client is None:
-            return json.dumps(
-                {"ok": False, "detail": f"「{name}」失败：未连接到 NapCat，请确认 astrbot_plugin_napcat 插件已正常加载"},
-                ensure_ascii=False,
-            )
-        return None
 
     def _set_gid(self, event: AstrMessageEvent):
         """从 event 中提取当前群号。"""
@@ -168,14 +143,10 @@ class Main(Star):
         except Exception:
             pass
 
-    def _require_client(self, name: str = "操作") -> str | None:
-        """确保 client 已初始化，未初始化时返回错误信息。"""
-        if self.client is None:
-            return json.dumps(
-                {"ok": False, "detail": f"「{name}」失败：未连接到 NapCat，请确认 astrbot_plugin_napcat 插件已正常加载"},
-                ensure_ascii=False,
-            )
-        return None
+    def _resolve_gid(self, group_id: str) -> int:
+        """解析群号：显式传入 → 事件捕获 → 0。"""
+        gid = str(group_id or "").strip()
+        return int(gid) if gid else self._gid()
 
     # ═══ 生命周期：在 LLM 请求前捕获客户端 ═══
 
