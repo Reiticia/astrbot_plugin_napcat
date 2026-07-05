@@ -71,18 +71,23 @@ class Main(Star):
         return None
 
     async def _load_contacts(self) -> Dict:
+        """加载联系人缓存（群列表 + 好友列表），300 秒内命中缓存。"""
         async with self._contacts_lock:
             now = datetime.now()
             if self._contacts and self._contacts_ts and (now - self._contacts_ts).seconds < 300:
                 return self._contacts
             try:
-                friends = await self.client.call_action('get_friend_list')
-                groups = await self.client.call_action('get_group_list')
-                self._contacts = {'friends': friends, 'groups': groups}
-                self._contacts_ts = now
+                friends_raw = await self.client.call_action('get_friend_list')
+                groups_raw = await self.client.call_action('get_group_list')
             except Exception:
-                pass
-            return self._contacts or {'friends': [], 'groups': []}
+                return self._contacts or {'friends': [], 'groups': []}
+
+            # 兼容返回格式：可能是裸列表，也可能是 {data: [...]}
+            friends = friends_raw if isinstance(friends_raw, list) else friends_raw.get('data', [])
+            groups = groups_raw if isinstance(groups_raw, list) else groups_raw.get('data', [])
+            self._contacts = {'friends': friends, 'groups': groups}
+            self._contacts_ts = now
+            return self._contacts
 
     def _set_client(self, event: AstrMessageEvent):
         """设置 NapCat 客户端实例。
@@ -187,7 +192,8 @@ class Main(Star):
             search_type(string): all=全部(默认) / friend=仅好友 / group=仅群聊
         '''
         self._set_client(event)
-        r = await contacts_mod.search_contacts(self.client, self._contacts or {}, keyword, search_type)
+        contacts = await self._load_contacts()
+        r = await contacts_mod.search_contacts(self.client, contacts, keyword, search_type)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="list_contacts")
@@ -198,7 +204,8 @@ class Main(Star):
             contact_type(string): all=全部(默认) / friend=仅好友 / group=仅群聊
         '''
         self._set_client(event)
-        r = await contacts_mod.list_contacts(self._contacts or {}, contact_type)
+        contacts = await self._load_contacts()
+        r = await contacts_mod.list_contacts(contacts, contact_type)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_user_group_role")
