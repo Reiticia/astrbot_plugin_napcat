@@ -94,15 +94,70 @@ class Main(Star):
             self._contacts_ts = now
             return self._contacts
 
-    def _set_client(self, event: AstrMessageEvent):
-        """设置 NapCat 客户端实例。
+    async def _get_client(self, event: AstrMessageEvent) -> object | None:
+        """获取 NapCat 客户端实例。三层回退策略，兼容 v4.26.0 的 event 包装。
 
-        优先使用 event.bot，若不存在则保留上次成功设置的 client。
-        使用 duck-typing 而非 isinstance，兼容不同 AstrBot 版本的 event 包装。
+        1. 从 event.bot 获取
+        2. 使用上次缓存的 self.client
+        3. 通过 self.context.platform_manager 获取平台适配器的 client
         """
+        # 一层：从 event 获取
         bot = getattr(event, 'bot', None)
-        if bot is not None:
+        if bot is not None and hasattr(bot, 'call_action'):
             self.client = bot
+            return bot
+
+        # 二层：使用缓存
+        if self.client is not None and hasattr(self.client, 'call_action'):
+            return self.client
+
+        # 三层：从 platform_manager 获取
+        try:
+            pm = getattr(self.context, 'platform_manager', None)
+            if pm is None:
+                return None
+            # 尝试 get_insts() 或 _platforms
+            platforms = []
+            if hasattr(pm, 'get_insts'):
+                platforms = pm.get_insts()
+            elif hasattr(pm, '_platforms'):
+                platforms = list(pm._platforms.values())
+            for platform in platforms:
+                # 尝试 get_client() 方法
+                if hasattr(platform, 'get_client'):
+                    client = platform.get_client()
+                    if client is not None and hasattr(client, 'call_action'):
+                        self.client = client
+                        return client
+                # 尝试 .client 属性
+                if hasattr(platform, 'client') and hasattr(platform.client, 'call_action'):
+                    self.client = platform.client
+                    return platform.client
+        except Exception as e:
+            logger.debug(f"[{PLUGIN_ID}] 从 platform_manager 获取 client 失败: {e}")
+        return None
+
+    def _set_client(self, event: AstrMessageEvent):
+        """向后兼容：委托给 _get_client（同步包装，忽略返回值）。"""
+        pass  # 废弃，保留签名供旧调用方兼容
+
+    def _ensure_client(self, event: AstrMessageEvent, name: str = "操作") -> str | None:
+        """确保 client 可用：先尝试获取，失败返回错误 JSON。"""
+        client = self.client
+        if client is not None and hasattr(client, 'call_action'):
+            return None  # 已有有效 client，直接返回
+        # 异步获取不可在此处 await，由各工具开头调用
+        return None  # 各工具开头异步调用 _set_client_and_check
+
+    async def _set_client_and_check(self, event: AstrMessageEvent, name: str = "操作") -> str | None:
+        """异步获取 client 并检查，失败时返回错误 JSON。"""
+        client = await self._get_client(event)
+        if client is None:
+            return json.dumps(
+                {"ok": False, "detail": f"「{name}」失败：未连接到 NapCat，请确认 astrbot_plugin_napcat 插件已正常加载"},
+                ensure_ascii=False,
+            )
+        return None
 
     def _set_gid(self, event: AstrMessageEvent):
         """从 event 中提取当前群号。"""
@@ -131,7 +186,9 @@ class Main(Star):
         v4.26.0 的 tool_loop_agent_runner 可能在调用 LLM 工具时传入被包装过的 event，
         导致 event.bot 丢失。此处提前在消息处理阶段捕获，确保后续工具调用时 client 可用。
         """
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            logger.warning(f"[{PLUGIN_ID}] _capture_client 未能获取 client，工具调用可能失败")
         self._set_gid(event)
 
     # ═══ 消息 ═══
@@ -145,7 +202,9 @@ class Main(Star):
             message(string): 要发送的消息内容
             chat_type(string): group=群聊(默认) / private=私聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await messaging.send_message(self.client, target_id, message, chat_type)
         return json.dumps(r, ensure_ascii=False)
 
@@ -158,7 +217,9 @@ class Main(Star):
             group_id(string): 群号，留空则使用当前群聊
         '''
         POKE_CD = 10  # 每个用户 10 秒冷却
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
 
         # 冷却检查
         last = self._poke_cooldowns.get(target_qq, 0)
@@ -183,7 +244,9 @@ class Main(Star):
             user_id(string): 目标QQ号
             times(number): 点赞次数，默认1，最多20
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await messaging.send_like(self.client, user_id, times)
         return json.dumps(r, ensure_ascii=False)
 
@@ -197,7 +260,9 @@ class Main(Star):
             keyword(string): 搜索关键词（群名、好友昵称、QQ号均可）
             search_type(string): all=全部(默认) / friend=仅好友 / group=仅群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         contacts = await self._load_contacts()
         r = await contacts_mod.search_contacts(self.client, contacts, keyword, search_type)
         return json.dumps(r, ensure_ascii=False)
@@ -209,7 +274,9 @@ class Main(Star):
         Args:
             contact_type(string): all=全部(默认) / friend=仅好友 / group=仅群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         contacts = await self._load_contacts()
         r = await contacts_mod.list_contacts(contacts, contact_type)
         return json.dumps(r, ensure_ascii=False)
@@ -222,7 +289,9 @@ class Main(Star):
             user_id(string): 要查询的QQ号
             group_id(string): 群号
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await contacts_mod.get_user_group_role(self.client, user_id, group_id)
         return json.dumps(r, ensure_ascii=False)
 
@@ -236,7 +305,9 @@ class Main(Star):
             status(string): 状态码：online(在线) / qme(Q我吧) / away(离开) / busy(忙碌) / dnd(请勿打扰) / invisible(隐身) / listening(听歌中) / sleeping(睡觉中) / studying(学习中)
             duration_minutes(number): 持续多少分钟后自动恢复在线，默认30
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await status_mod.update_qq_status(self.status_ctrl, status, duration_minutes)
         return json.dumps(r, ensure_ascii=False)
 
@@ -263,7 +334,9 @@ class Main(Star):
             duration(number): 禁言时长（秒），0表示解除禁言
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_ban", "禁言")
         if r:
@@ -286,7 +359,9 @@ class Main(Star):
             reject_add_request(boolean): 是否同时拒绝该用户再次申请加群，默认false
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_kick", "踢人")
         if r:
@@ -305,7 +380,9 @@ class Main(Star):
             card(string): 新的群名片内容
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_card(self.client, gid, user_id, card)
@@ -320,7 +397,9 @@ class Main(Star):
             enable(boolean): true=设为管理员 / false=取消管理员
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_set_admin", "设置管理员")
         if r:
@@ -339,7 +418,9 @@ class Main(Star):
             special_title(string): 专属头衔文字，留空为取消头衔
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_members.set_group_special_title(self.client, gid, user_id, special_title)
@@ -355,7 +436,9 @@ class Main(Star):
             content(string): 公告正文内容
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.send_group_notice(self.client, gid, content)
@@ -369,7 +452,9 @@ class Main(Star):
             notice_id(string): 公告ID（可通过 get_group_notice_list 获取）
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_delete_notice", "删除群公告")
         if r:
@@ -386,7 +471,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.get_group_notice_list(self.client, gid)
@@ -399,7 +486,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.list_group_files(self.client, gid)
@@ -414,7 +503,9 @@ class Main(Star):
             busid(number): 文件类型标识，默认102
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_delete_file", "删除群文件")
         if r:
@@ -433,7 +524,9 @@ class Main(Star):
             name(string): 上传后在群文件中显示的名称，留空则使用原文件名
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.upload_group_file(self.client, gid, file_path, name)
@@ -447,7 +540,9 @@ class Main(Star):
             name(string): 文件夹名称
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_files.create_group_file_folder(self.client, gid, name)
@@ -461,7 +556,9 @@ class Main(Star):
             folder_id(string): 文件夹ID
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_delete_folder", "删除群文件夹")
         if r:
@@ -481,7 +578,9 @@ class Main(Star):
             enable(boolean): true=开启全体禁言 / false=关闭全体禁言
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_whole_ban", "全体禁言")
         if r:
@@ -499,7 +598,9 @@ class Main(Star):
             group_name(string): 新的群名称
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_set_group_name", "修改群名称")
         if r:
@@ -517,7 +618,9 @@ class Main(Star):
             option(string): allow=允许任何人 / verify=需要验证消息 / deny=禁止加群
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         r = self._guard("allow_set_add_option", "设置加群方式")
         if r:
@@ -534,7 +637,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.send_group_sign(self.client, gid)
@@ -547,7 +652,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_members_info(self.client, gid)
@@ -561,7 +668,9 @@ class Main(Star):
             type(string): 荣誉类型：talkative(龙王) / performer(群聊之火) / emotion(快乐源泉) / all(全部，默认)
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_honor_info(self.client, gid, type)
@@ -574,7 +683,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_shut_list(self.client, gid)
@@ -587,7 +698,9 @@ class Main(Star):
         Args:
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await group_settings.get_group_at_all_remain(self.client, gid)
@@ -598,7 +711,9 @@ class Main(Star):
     @filter.llm_tool(name="get_ai_characters")
     async def get_ai_characters(self, event: AstrMessageEvent) -> str:
         '''获取QQ官方TTS所有可用的AI语音角色列表（如luoli、yujie等）。'''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await voice.get_ai_characters(self.client)
         return json.dumps(r, ensure_ascii=False)
 
@@ -611,7 +726,9 @@ class Main(Star):
             character_id(string): 语音角色ID，留空则使用插件配置的默认角色。可用角色通过 get_ai_characters 查询
             group_id(string): 群号，留空则使用当前群聊
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await voice.send_ai_voice(self.client, self._cfg(), gid, text, character_id)
@@ -627,7 +744,9 @@ class Main(Star):
             nickname(string): 新昵称，留空则不修改
             personal_note(string): 新个性签名，留空则不修改
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = self._guard("allow_set_profile", "修改个人资料")
         if r:
 
@@ -642,7 +761,9 @@ class Main(Star):
         Args:
             file(string): 图片路径（本地绝对路径 / base64://格式 / http(s)://URL）
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = self._guard("allow_set_avatar", "修改QQ头像")
         if r:
 
@@ -660,7 +781,9 @@ class Main(Star):
             group_id(string): 群号，留空则获取当前群聊的历史消息
             count(number): 获取条数，默认20条
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
         r = await history.get_group_msg_history(self.client, gid, count)
@@ -674,6 +797,8 @@ class Main(Star):
             user_id(string): 好友QQ号
             count(number): 获取条数，默认20条
         '''
-        self._set_client(event)
+        await self._get_client(event)
+        if not self.client:
+            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         r = await history.get_friend_msg_history(self.client, user_id, count)
         return json.dumps(r, ensure_ascii=False)
