@@ -48,6 +48,11 @@ class Main(Star):
     def _gid(self) -> int:
         return self.current_group_id
 
+    def _resolve_gid(self, group_id: str) -> int:
+        """解析群号：显式传入 → 事件捕获 → 0。"""
+        gid = str(group_id or "").strip()
+        return int(gid) if gid else self._gid()
+
     def _cfg(self) -> Dict:
         return self.config or {}
 
@@ -145,11 +150,12 @@ class Main(Star):
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="send_poke")
-    async def send_poke(self, event: AstrMessageEvent, target_qq: str) -> str:
+    async def send_poke(self, event: AstrMessageEvent, target_qq: str, group_id: str = "") -> str:
         '''发送戳一戳（窗口抖动/双击头像效果）。群聊中会戳当前群的成员，私聊中戳好友。
 
         Args:
             target_qq(string): 目标QQ号
+            group_id(string): 群号，留空则使用当前群聊
         '''
         POKE_CD = 10  # 每个用户 10 秒冷却
         self._set_client(event)
@@ -164,7 +170,7 @@ class Main(Star):
                 ensure_ascii=False,
             )
 
-        gid = self._gid()
+        gid = self._resolve_gid(group_id)
         r = await messaging.send_poke(self.client, target_qq, group_id=gid)
         self._poke_cooldowns[target_qq] = now
         return json.dumps(r, ensure_ascii=False)
@@ -249,231 +255,291 @@ class Main(Star):
     # ═══ 群成员控制 ═══
 
     @filter.llm_tool(name="set_group_ban")
-    async def set_group_ban(self, event: AstrMessageEvent, user_id: str, duration: int) -> str:
+    async def set_group_ban(self, event: AstrMessageEvent, user_id: str, duration: int, group_id: str = "") -> str:
         '''禁言或解禁指定群成员。duration=0为解除禁言。
 
         Args:
             user_id(string): 要禁言的QQ号
             duration(number): 禁言时长（秒），0表示解除禁言
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_ban", "禁言"): return r
         if r := self._check_ban_whitelist(user_id): return r
-        r = await group_members.set_group_ban(self.client, self._gid(), user_id, duration)
+        gid = self._resolve_gid(group_id)
+        r = await group_members.set_group_ban(self.client, gid, user_id, duration)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_kick")
-    async def set_group_kick(self, event: AstrMessageEvent, user_id: str, reject_add_request: bool = False) -> str:
+    async def set_group_kick(self, event: AstrMessageEvent, user_id: str, reject_add_request: bool = False, group_id: str = "") -> str:
         '''将指定成员踢出当前群聊。
 
         Args:
             user_id(string): 要踢出的QQ号
             reject_add_request(boolean): 是否同时拒绝该用户再次申请加群，默认false
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_kick", "踢人"): return r
-        r = await group_members.set_group_kick(self.client, self._gid(), user_id, reject_add_request)
+        gid = self._resolve_gid(group_id)
+        r = await group_members.set_group_kick(self.client, gid, user_id, reject_add_request)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_card")
-    async def set_group_card(self, event: AstrMessageEvent, user_id: str, card: str) -> str:
+    async def set_group_card(self, event: AstrMessageEvent, user_id: str, card: str, group_id: str = "") -> str:
         '''修改指定成员的群名片（群昵称）。
 
         Args:
             user_id(string): 目标QQ号
             card(string): 新的群名片内容
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_members.set_group_card(self.client, self._gid(), user_id, card)
+        gid = self._resolve_gid(group_id)
+        r = await group_members.set_group_card(self.client, gid, user_id, card)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_admin")
-    async def set_group_admin(self, event: AstrMessageEvent, user_id: str, enable: bool) -> str:
+    async def set_group_admin(self, event: AstrMessageEvent, user_id: str, enable: bool, group_id: str = "") -> str:
         '''设置或取消指定成员的管理员权限。
 
         Args:
             user_id(string): 目标QQ号
             enable(boolean): true=设为管理员 / false=取消管理员
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_set_admin", "设置管理员"): return r
-        r = await group_members.set_group_admin(self.client, self._gid(), user_id, enable)
+        gid = self._resolve_gid(group_id)
+        r = await group_members.set_group_admin(self.client, gid, user_id, enable)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_special_title")
-    async def set_group_special_title(self, event: AstrMessageEvent, user_id: str, special_title: str) -> str:
+    async def set_group_special_title(self, event: AstrMessageEvent, user_id: str, special_title: str, group_id: str = "") -> str:
         '''设置群成员专属头衔（仅群主可用，最长6字符）。
 
         Args:
             user_id(string): 目标QQ号
             special_title(string): 专属头衔文字，留空为取消头衔
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_members.set_group_special_title(self.client, self._gid(), user_id, special_title)
+        gid = self._resolve_gid(group_id)
+        r = await group_members.set_group_special_title(self.client, gid, user_id, special_title)
         return json.dumps(r, ensure_ascii=False)
 
     # ═══ 群文件&公告 ═══
 
     @filter.llm_tool(name="send_group_notice")
-    async def send_group_notice(self, event: AstrMessageEvent, content: str) -> str:
+    async def send_group_notice(self, event: AstrMessageEvent, content: str, group_id: str = "") -> str:
         '''在当前群聊中发布新公告。
 
         Args:
             content(string): 公告正文内容
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_files.send_group_notice(self.client, self._gid(), content)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.send_group_notice(self.client, gid, content)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="delete_group_notice")
-    async def delete_group_notice(self, event: AstrMessageEvent, notice_id: str) -> str:
+    async def delete_group_notice(self, event: AstrMessageEvent, notice_id: str, group_id: str = "") -> str:
         '''删除指定ID的群公告。
 
         Args:
             notice_id(string): 公告ID（可通过 get_group_notice_list 获取）
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_delete_notice", "删除群公告"): return r
-        r = await group_files.delete_group_notice(self.client, self._gid(), notice_id)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.delete_group_notice(self.client, gid, notice_id)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_notice_list")
-    async def get_group_notice_list(self, event: AstrMessageEvent) -> str:
-        '''获取当前群聊的所有公告列表。'''
+    async def get_group_notice_list(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''获取当前群聊的所有公告列表。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_files.get_group_notice_list(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_files.get_group_notice_list(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="list_group_files")
-    async def list_group_files(self, event: AstrMessageEvent) -> str:
-        '''查看当前群聊的群文件目录。'''
+    async def list_group_files(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''查看当前群聊的群文件目录。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_files.list_group_files(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_files.list_group_files(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="delete_group_file")
-    async def delete_group_file(self, event: AstrMessageEvent, file_id: str, busid: int = 102) -> str:
+    async def delete_group_file(self, event: AstrMessageEvent, file_id: str, busid: int = 102, group_id: str = "") -> str:
         '''删除群文件中的指定文件。
 
         Args:
             file_id(string): 文件ID（可通过 list_group_files 获取）
             busid(number): 文件类型标识，默认102
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_delete_file", "删除群文件"): return r
-        r = await group_files.delete_group_file(self.client, self._gid(), file_id, busid)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.delete_group_file(self.client, gid, file_id, busid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="upload_group_file")
-    async def upload_group_file(self, event: AstrMessageEvent, file_path: str, name: str = "") -> str:
+    async def upload_group_file(self, event: AstrMessageEvent, file_path: str, name: str = "", group_id: str = "") -> str:
         '''上传本地文件到群共享。
 
         Args:
             file_path(string): 本地文件的绝对路径
             name(string): 上传后在群文件中显示的名称，留空则使用原文件名
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_files.upload_group_file(self.client, self._gid(), file_path, name)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.upload_group_file(self.client, gid, file_path, name)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="create_group_file_folder")
-    async def create_group_file_folder(self, event: AstrMessageEvent, name: str) -> str:
+    async def create_group_file_folder(self, event: AstrMessageEvent, name: str, group_id: str = "") -> str:
         '''在群文件根目录下创建新文件夹。
 
         Args:
             name(string): 文件夹名称
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_files.create_group_file_folder(self.client, self._gid(), name)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.create_group_file_folder(self.client, gid, name)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="delete_group_folder")
-    async def delete_group_folder(self, event: AstrMessageEvent, folder_id: str) -> str:
+    async def delete_group_folder(self, event: AstrMessageEvent, folder_id: str, group_id: str = "") -> str:
         '''删除群文件中的文件夹（会同时删除文件夹内所有文件）。
 
         Args:
             folder_id(string): 文件夹ID
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_delete_folder", "删除群文件夹"): return r
-        r = await group_files.delete_group_folder(self.client, self._gid(), folder_id)
+        gid = self._resolve_gid(group_id)
+        r = await group_files.delete_group_folder(self.client, gid, folder_id)
         return json.dumps(r, ensure_ascii=False)
 
     # ═══ 群设置&查询 ═══
 
     @filter.llm_tool(name="set_group_whole_ban")
-    async def set_group_whole_ban(self, event: AstrMessageEvent, enable: bool) -> str:
+    async def set_group_whole_ban(self, event: AstrMessageEvent, enable: bool, group_id: str = "") -> str:
         '''开启或关闭当前群聊的全体禁言。
 
         Args:
             enable(boolean): true=开启全体禁言 / false=关闭全体禁言
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_whole_ban", "全体禁言"): return r
-        r = await group_settings.set_group_whole_ban(self.client, self._gid(), enable)
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.set_group_whole_ban(self.client, gid, enable)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_name")
-    async def set_group_name(self, event: AstrMessageEvent, group_name: str) -> str:
+    async def set_group_name(self, event: AstrMessageEvent, group_name: str, group_id: str = "") -> str:
         '''修改当前群聊的名称。
 
         Args:
             group_name(string): 新的群名称
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_set_group_name", "修改群名称"): return r
-        r = await group_settings.set_group_name(self.client, self._gid(), group_name)
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.set_group_name(self.client, gid, group_name)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="set_group_add_option")
-    async def set_group_add_option(self, event: AstrMessageEvent, option: str) -> str:
+    async def set_group_add_option(self, event: AstrMessageEvent, option: str, group_id: str = "") -> str:
         '''设置当前群的加群验证方式。
 
         Args:
             option(string): allow=允许任何人 / verify=需要验证消息 / deny=禁止加群
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
         if r := self._guard("allow_set_add_option", "设置加群方式"): return r
-        r = await group_settings.set_group_add_option(self.client, self._gid(), option)
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.set_group_add_option(self.client, gid, option)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="send_group_sign")
-    async def send_group_sign(self, event: AstrMessageEvent) -> str:
-        '''在当前群聊进行打卡/签到操作。'''
+    async def send_group_sign(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''在当前群聊进行打卡/签到操作。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_settings.send_group_sign(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.send_group_sign(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_members_info")
-    async def get_group_members_info(self, event: AstrMessageEvent) -> str:
-        '''获取当前群聊的完整成员列表（含QQ号、群名片、身份等信息）。'''
+    async def get_group_members_info(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''获取当前群聊的完整成员列表（含QQ号、群名片、身份等信息）。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_settings.get_group_members_info(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.get_group_members_info(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_honor_info")
-    async def get_group_honor_info(self, event: AstrMessageEvent, type: str = "all") -> str:
+    async def get_group_honor_info(self, event: AstrMessageEvent, type: str = "all", group_id: str = "") -> str:
         '''查看当前群的荣誉信息（龙王、群聊之火、快乐源泉等）。
 
         Args:
             type(string): 荣誉类型：talkative(龙王) / performer(群聊之火) / emotion(快乐源泉) / all(全部，默认)
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await group_settings.get_group_honor_info(self.client, self._gid(), type)
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.get_group_honor_info(self.client, gid, type)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_shut_list")
-    async def get_group_shut_list(self, event: AstrMessageEvent) -> str:
-        '''获取当前群聊中被禁言的成员列表。'''
+    async def get_group_shut_list(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''获取当前群聊中被禁言的成员列表。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_settings.get_group_shut_list(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.get_group_shut_list(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_at_all_remain")
-    async def get_group_at_all_remain(self, event: AstrMessageEvent) -> str:
-        '''查询当前群聊今日 @全体成员 的剩余可用次数。'''
+    async def get_group_at_all_remain(self, event: AstrMessageEvent, group_id: str = "") -> str:
+        '''查询当前群聊今日 @全体成员 的剩余可用次数。
+
+        Args:
+            group_id(string): 群号，留空则使用当前群聊
+        '''
         self._set_client(event); self._set_gid(event)
-        r = await group_settings.get_group_at_all_remain(self.client, self._gid())
+        gid = self._resolve_gid(group_id)
+        r = await group_settings.get_group_at_all_remain(self.client, gid)
         return json.dumps(r, ensure_ascii=False)
 
     # ═══ AI语音 ═══
@@ -486,15 +552,17 @@ class Main(Star):
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="send_ai_voice")
-    async def send_ai_voice(self, event: AstrMessageEvent, text: str, character_id: str = "") -> str:
+    async def send_ai_voice(self, event: AstrMessageEvent, text: str, character_id: str = "", group_id: str = "") -> str:
         '''在当前群聊发送AI语音消息（QQ官方TTS）。文本过长会自动截断。
 
         Args:
             text(string): 要让AI朗读的文本内容
             character_id(string): 语音角色ID，留空则使用插件配置的默认角色。可用角色通过 get_ai_characters 查询
+            group_id(string): 群号，留空则使用当前群聊
         '''
         self._set_client(event); self._set_gid(event)
-        r = await voice.send_ai_voice(self.client, self._cfg(), self._gid(), text, character_id)
+        gid = self._resolve_gid(group_id)
+        r = await voice.send_ai_voice(self.client, self._cfg(), gid, text, character_id)
         return json.dumps(r, ensure_ascii=False)
 
     # ═══ 个人资料 ═══
@@ -535,7 +603,7 @@ class Main(Star):
             count(number): 获取条数，默认20条
         '''
         self._set_client(event); self._set_gid(event)
-        gid = int(group_id) if group_id else self._gid()
+        gid = self._resolve_gid(group_id)
         r = await history.get_group_msg_history(self.client, gid, count)
         return json.dumps(r, ensure_ascii=False)
 
