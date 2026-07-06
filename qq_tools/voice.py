@@ -5,7 +5,8 @@ import json
 
 async def get_ai_characters(client) -> dict:
     result = await client.call_action('get_ai_characters', chat_type=1)
-    chars = result.get('data', result)
+    # call_action 返回已解包的 data；get_ai_characters 的 data 为列表，需兼容裸列表与 {data:[...]} 两种形态
+    chars = result if isinstance(result, list) else result.get('data', result)
     return {'ok': True, 'result': json.dumps(chars, ensure_ascii=False)}
 
 

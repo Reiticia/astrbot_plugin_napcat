@@ -52,6 +52,9 @@ class Main(Star):
     def _cfg(self) -> Dict:
         return self.config or {}
 
+    def _limit(self) -> int:
+        return self._cfg().get("max_output_chars", 2000)
+
     def _guard(self, key: str, name: str) -> str | None:
         '''检查权限配置，返回 None 表示放行，否则返回拒绝原因字符串。'''
         if not self._cfg().get(key, False):
@@ -143,11 +146,6 @@ class Main(Star):
         except Exception:
             pass
 
-    def _resolve_gid(self, group_id: str) -> int:
-        """解析群号：显式传入 → 事件捕获 → 0。"""
-        gid = str(group_id or "").strip()
-        return int(gid) if gid else self._gid()
-
     # ═══ 生命周期：在 LLM 请求前捕获客户端 ═══
 
     @filter.on_llm_request()
@@ -235,7 +233,7 @@ class Main(Star):
         if not self.client:
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         contacts = await self._load_contacts()
-        r = await contacts_mod.search_contacts(self.client, contacts, keyword, search_type)
+        r = await contacts_mod.search_contacts(self.client, contacts, keyword, search_type, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="list_contacts")
@@ -249,7 +247,7 @@ class Main(Star):
         if not self.client:
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         contacts = await self._load_contacts()
-        r = await contacts_mod.list_contacts(contacts, contact_type)
+        r = await contacts_mod.list_contacts(contacts, contact_type, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_user_group_role")
@@ -447,7 +445,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await group_files.get_group_notice_list(self.client, gid)
+        r = await group_files.get_group_notice_list(self.client, gid, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="list_group_files")
@@ -462,7 +460,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await group_files.list_group_files(self.client, gid)
+        r = await group_files.list_group_files(self.client, gid, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="delete_group_file")
@@ -581,26 +579,6 @@ class Main(Star):
         r = await group_settings.set_group_name(self.client, gid, group_name)
         return json.dumps(r, ensure_ascii=False)
 
-    @filter.llm_tool(name="set_group_add_option")
-    async def set_group_add_option(self, event: AstrMessageEvent, option: str, group_id: str = "") -> str:
-        '''设置当前群的加群验证方式。
-
-        Args:
-            option(string): allow=允许任何人 / verify=需要验证消息 / deny=禁止加群
-            group_id(string): 群号，留空则使用当前群聊
-        '''
-        await self._get_client(event)
-        if not self.client:
-            return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
-        self._set_gid(event)
-        r = self._guard("allow_set_add_option", "设置加群方式")
-        if r:
-
-            return r
-        gid = self._resolve_gid(group_id)
-        r = await group_settings.set_group_add_option(self.client, gid, option)
-        return json.dumps(r, ensure_ascii=False)
-
     @filter.llm_tool(name="send_group_sign")
     async def send_group_sign(self, event: AstrMessageEvent, group_id: str = "") -> str:
         '''在当前群聊进行打卡/签到操作。
@@ -628,7 +606,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await group_settings.get_group_members_info(self.client, gid)
+        r = await group_settings.get_group_members_info(self.client, gid, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_honor_info")
@@ -644,7 +622,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await group_settings.get_group_honor_info(self.client, gid, type)
+        r = await group_settings.get_group_honor_info(self.client, gid, type, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_shut_list")
@@ -659,7 +637,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await group_settings.get_group_shut_list(self.client, gid)
+        r = await group_settings.get_group_shut_list(self.client, gid, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_group_at_all_remain")
@@ -757,7 +735,7 @@ class Main(Star):
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
         self._set_gid(event)
         gid = self._resolve_gid(group_id)
-        r = await history.get_group_msg_history(self.client, gid, count)
+        r = await history.get_group_msg_history(self.client, gid, count, self._limit())
         return json.dumps(r, ensure_ascii=False)
 
     @filter.llm_tool(name="get_friend_msg_history")
@@ -771,5 +749,5 @@ class Main(Star):
         await self._get_client(event)
         if not self.client:
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
-        r = await history.get_friend_msg_history(self.client, user_id, count)
+        r = await history.get_friend_msg_history(self.client, user_id, count, self._limit())
         return json.dumps(r, ensure_ascii=False)

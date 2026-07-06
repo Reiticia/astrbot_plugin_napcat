@@ -57,12 +57,6 @@
         "default": false,
         "hint": "⚠️ 修改群名影响群标识"
     },
-    "allow_set_add_option": {
-        "description": "允许 LLM 修改加群方式",
-        "type": "bool",
-        "default": false,
-        "hint": "⚠️ 可能影响群的准入策略"
-    },
     "allow_delete_notice": {
         "description": "允许 LLM 删除群公告",
         "type": "bool",

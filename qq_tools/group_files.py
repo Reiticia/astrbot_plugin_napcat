@@ -16,14 +16,14 @@ async def delete_group_notice(client, group_id: int, notice_id: str) -> dict:
     return {'ok': True, 'detail': '公告已删除'}
 
 
-async def get_group_notice_list(client, group_id: int) -> dict:
+async def get_group_notice_list(client, group_id: int, limit: int = 2000) -> dict:
     data = await client.call_action('_get_group_notice', group_id=group_id)
-    return {'ok': True, 'result': truncate(json.dumps(data, ensure_ascii=False, indent=2))}
+    return {'ok': True, 'result': truncate(json.dumps(data, ensure_ascii=False, indent=2), limit)}
 
 
-async def list_group_files(client, group_id: int) -> dict:
+async def list_group_files(client, group_id: int, limit: int = 2000) -> dict:
     data = await client.call_action('get_group_file_system_info', group_id=group_id)
-    return {'ok': True, 'result': truncate(json.dumps(data, ensure_ascii=False, indent=2))}
+    return {'ok': True, 'result': truncate(json.dumps(data, ensure_ascii=False, indent=2), limit)}
 
 
 async def delete_group_file(client, group_id: int, file_id: str, busid: int = 102) -> dict:

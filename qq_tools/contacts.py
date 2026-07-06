@@ -3,8 +3,8 @@
 from .utils import truncate
 
 
-async def search_contacts(client, contacts_cache: dict,
-                          keyword: str, search_type: str = 'all') -> dict:
+async def search_contacts(client, contacts_cache: dict, keyword: str,
+                          search_type: str = 'all', limit: int = 2000) -> dict:
     hits = []
     if search_type in ('all', 'group'):
         for g in contacts_cache.get('groups', []):
@@ -15,10 +15,10 @@ async def search_contacts(client, contacts_cache: dict,
             name = f"{f.get('remark', '')}{f.get('nickname', '')}"
             if keyword.lower() in name.lower() or keyword == str(f.get('user_id', '')):
                 hits.append(f"好友｜{f.get('nickname')}（{f.get('user_id')}）")
-    return {'ok': True, 'result': truncate('\n'.join(hits) if hits else '未找到匹配的联系人')}
+    return {'ok': True, 'result': truncate('\n'.join(hits) if hits else '未找到匹配的联系人', limit)}
 
 
-async def list_contacts(contacts_cache: dict, contact_type: str = 'all') -> dict:
+async def list_contacts(contacts_cache: dict, contact_type: str = 'all', limit: int = 2000) -> dict:
     lines = []
     if contact_type in ('all', 'group'):
         for g in contacts_cache.get('groups', []):
@@ -26,7 +26,7 @@ async def list_contacts(contacts_cache: dict, contact_type: str = 'all') -> dict
     if contact_type in ('all', 'friend'):
         for f in contacts_cache.get('friends', []):
             lines.append(f"好友｜{f.get('nickname')}（{f.get('user_id')}）")
-    return {'ok': True, 'result': truncate('\n'.join(lines) if lines else '列表为空')}
+    return {'ok': True, 'result': truncate('\n'.join(lines) if lines else '列表为空', limit)}
 
 
 async def get_user_group_role(client, user_id: str, group_id: str) -> dict:
