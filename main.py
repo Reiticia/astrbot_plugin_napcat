@@ -10,7 +10,8 @@ from datetime import datetime
 from typing import Optional, Dict
 
 from astrbot.api import logger
-from astrbot.api.event import filter, AstrMessageEvent
+from astrbot.api.event import filter, AstrMessageEvent, MessageChain
+from astrbot.api.platform import MessageType
 from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
 
@@ -174,8 +175,16 @@ class Main(Star):
         await self._get_client(event)
         if not self.client:
             return json.dumps({"ok": False, "detail": "操作失败：未连接到 NapCat"}, ensure_ascii=False)
-        r = await messaging.send_message(self.client, target_id, message, chat_type)
-        return json.dumps(r, ensure_ascii=False)
+
+        components = messaging.parse_components(message)
+        if not components:
+            return json.dumps({"ok": False, "detail": "消息内容为空"}, ensure_ascii=False)
+        mt = MessageType.GROUP_MESSAGE if chat_type == "group" else MessageType.FRIEND_MESSAGE
+        await self.context.send_message(
+            f"{event.get_platform_id()}:{mt.value}:{target_id}",
+            MessageChain(chain=components),
+        )
+        return json.dumps({"ok": True, "detail": "已发送"})
 
     @filter.llm_tool(name="send_poke")
     async def send_poke(self, event: AstrMessageEvent, target_qq: str, group_id: str = "") -> str:
